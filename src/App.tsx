@@ -91,19 +91,13 @@ const App = () => (
                   <Route path="history" element={<GuardHistory />} />
                 </Route>
 
-              {/* Guard Routes */}
-              <Route path="/guard" element={<GuardLayout />}>
-                <Route index element={<GuardHome />} />
-                <Route path="scan" element={<GuardScanPage />} />
-                <Route path="history" element={<GuardHistory />} />
-              </Route>
-
-              {/* Catch all */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </CartProvider>
+                {/* Catch all */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </CartProvider>
+      </AdminAuthProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
