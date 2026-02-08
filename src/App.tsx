@@ -14,6 +14,9 @@ import PhoneLoginTest from "./pages/PhoneLoginTest";
 import ImprovedPhoneLoginTest from "./pages/ImprovedPhoneLoginTest";
 import FirebaseDiagnosticsTest from "./pages/FirebaseDiagnosticsTest";
 
+// Test Components
+import FirebaseTest from "@/components/FirebaseTest";
+
 // Admin Components
 import AdminLogin from "@/components/admin/AdminLogin";
 import AdminRegister from "@/components/admin/AdminRegister";
@@ -57,6 +60,7 @@ const App = () => (
                 <Route path="/phone-test" element={<PhoneLoginTest />} />
                 <Route path="/improved-phone-test" element={<ImprovedPhoneLoginTest />} />
                 <Route path="/firebase-diagnostics" element={<FirebaseDiagnosticsTest />} />
+                <Route path="/firebase-test" element={<FirebaseTest />} />
 
                 {/* Admin Auth Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
