@@ -1,0 +1,99 @@
+# E-Commerce Web Application Frontend Requirements
+# ==================================================
+# This file documents the required technologies and libraries for the frontend
+# of a modern e-commerce web application built with Vite + React + TypeScript + Tailwind CSS and Firebase.
+#
+# Note: This is for documentation purposes only. Actual dependencies are managed via package.json.
+
+# 1. Runtime Environment
+# ----------------------
+# Node.js is required to run and build the application
+nodejs>=18.0.0
+
+# Package managers (choose one):
+# npm (comes with Node.js)
+# pnpm>=8.0.0
+# bun>=1.0.0
+
+# 2. Core Frontend Libraries
+# --------------------------
+# React - JavaScript library for building user interfaces
+react>=18.0.0
+
+# React DOM - DOM-specific methods for React
+react-dom>=18.0.0
+
+# 3. Build and Tooling
+# --------------------
+# Vite - Next generation frontend tooling
+vite>=4.0.0
+
+# TypeScript - Typed superset of JavaScript
+typescript>=5.0.0
+
+# 4. Styling and UI
+# -----------------
+# Tailwind CSS - Utility-first CSS framework
+tailwindcss>=3.0.0
+
+# PostCSS - CSS processing tool
+postcss>=8.0.0
+
+# Autoprefixer - Parse CSS and add vendor prefixes
+autoprefixer>=10.0.0
+
+# 5. Routing and State Management
+# -------------------------------
+# React Router DOM - Declarative routing for React
+react-router-dom>=6.0.0
+
+# React Context API - Built-in React solution for state management
+# Conceptual requirement - Part of React core
+
+# 6. Backend as a Service
+# -----------------------
+# Firebase - Comprehensive app development platform
+firebase>=10.0.0
+# Includes:
+# - Firebase Authentication
+# - Cloud Firestore
+# - Firebase Hosting ready configuration
+
+# 7. Testing Tools
+# ----------------
+# Vitest - Blazing fast unit test framework powered by Vite
+vitest>=0.34.0
+
+# React Testing Library - Simple and complete React DOM testing utilities
+@testing-library/react>=14.0.0
+
+# Jest DOM - Custom jest matchers to test the state of the DOM
+@testing-library/jest-dom>=6.0.0
+
+# 8. Linting and Formatting
+# -------------------------
+# ESLint - Pluggable JavaScript linter
+eslint>=8.0.0
+
+# React ESLint plugins
+eslint-plugin-react>=7.0.0
+eslint-plugin-react-hooks>=4.0.0
+eslint-plugin-react-refresh>=0.4.0
+
+# 9. Package Management
+# ---------------------
+# Dependencies are managed via package.json
+# Install dependencies with:
+# npm install
+# OR
+# pnpm install
+# OR
+# bun install
+
+# Development Commands:
+# ---------------------
+# Start development server: npm run dev
+# Build for production: npm run build
+# Preview production build: npm run preview
+# Run tests: npm run test
+# Lint code: npm run lint
