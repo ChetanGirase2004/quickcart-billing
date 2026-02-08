@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
+import { GuardAuthProvider } from "@/contexts/GuardAuthContext";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -21,6 +22,11 @@ import FirebaseTest from "@/components/FirebaseTest";
 import AdminLogin from "@/components/admin/AdminLogin";
 import AdminRegister from "@/components/admin/AdminRegister";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
+
+// Guard Components
+import GuardLogin from "@/components/guard/GuardLogin";
+import GuardRegister from "@/components/guard/GuardRegister";
+import GuardRoleGuard from "@/components/guard/GuardRoleGuard";
 
 // Customer
 import CustomerLayout from "./layouts/CustomerLayout";
@@ -49,58 +55,68 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <AdminAuthProvider>
-        <CartProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Auth */}
-                <Route path="/" element={<LoginPage />} />
-                <Route path="/phone-test" element={<PhoneLoginTest />} />
-                <Route path="/improved-phone-test" element={<ImprovedPhoneLoginTest />} />
-                <Route path="/firebase-diagnostics" element={<FirebaseDiagnosticsTest />} />
-                <Route path="/firebase-test" element={<FirebaseTest />} />
+        <GuardAuthProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  {/* Auth */}
+                  <Route path="/" element={<LoginPage />} />
+                  <Route path="/phone-test" element={<PhoneLoginTest />} />
+                  <Route path="/improved-phone-test" element={<ImprovedPhoneLoginTest />} />
+                  <Route path="/firebase-diagnostics" element={<FirebaseDiagnosticsTest />} />
+                  <Route path="/firebase-test" element={<FirebaseTest />} />
 
-                {/* Admin Auth Routes */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/register" element={<AdminRegister />} />
+                  {/* Admin Auth Routes */}
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin/register" element={<AdminRegister />} />
 
-                {/* Admin Protected Routes */}
-                <Route path="/admin" element={
-                  <AdminProtectedRoute>
-                    <AdminLayout />
-                  </AdminProtectedRoute>
-                }>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="malls" element={<MallsManagement />} />
-                  <Route path="transactions" element={<TransactionsPage />} />
-                  <Route path="*" element={<AdminDashboard />} />
-                </Route>
+                  {/* Admin Protected Routes */}
+                  <Route path="/admin" element={
+                    <AdminProtectedRoute>
+                      <AdminLayout />
+                    </AdminProtectedRoute>
+                  }>
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="malls" element={<MallsManagement />} />
+                    <Route path="transactions" element={<TransactionsPage />} />
+                    <Route path="*" element={<AdminDashboard />} />
+                  </Route>
 
-                {/* Customer Routes */}
-                <Route path="/customer" element={<CustomerLayout />}>
-                  <Route index element={<CustomerHome />} />
-                  <Route path="scan" element={<ScanProduct />} />
-                  <Route path="cart" element={<CartPage />} />
-                  <Route path="checkout" element={<CheckoutPage />} />
-                  <Route path="bill/:billId" element={<DigitalBill />} />
-                  <Route path="bills" element={<BillsHistory />} />
-                </Route>
+                  {/* Guard Auth Routes */}
+                  <Route path="/guard/login" element={<GuardLogin />} />
+                  <Route path="/guard/register" element={<GuardRegister />} />
 
-                {/* Guard Routes */}
-                <Route path="/guard" element={<GuardLayout />}>
-                  <Route index element={<GuardHome />} />
-                  <Route path="scan" element={<GuardScanPage />} />
-                  <Route path="history" element={<GuardHistory />} />
-                </Route>
+                  {/* Guard Protected Routes */}
+                  <Route path="/guard" element={
+                    <GuardRoleGuard>
+                      <GuardLayout />
+                    </GuardRoleGuard>
+                  }>
+                    <Route index element={<GuardHome />} />
+                    <Route path="scan" element={<GuardScanPage />} />
+                    <Route path="history" element={<GuardHistory />} />
+                  </Route>
 
-                {/* Catch all */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </CartProvider>
+                  {/* Customer Routes */}
+                  <Route path="/customer" element={<CustomerLayout />}>
+                    <Route index element={<CustomerHome />} />
+                    <Route path="scan" element={<ScanProduct />} />
+                    <Route path="cart" element={<CartPage />} />
+                    <Route path="checkout" element={<CheckoutPage />} />
+                    <Route path="bill/:billId" element={<DigitalBill />} />
+                    <Route path="bills" element={<BillsHistory />} />
+                  </Route>
+
+                  {/* Catch all */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </CartProvider>
+        </GuardAuthProvider>
       </AdminAuthProvider>
     </AuthProvider>
   </QueryClientProvider>
