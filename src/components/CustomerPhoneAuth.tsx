@@ -17,14 +17,27 @@ const CustomerPhoneAuth: React.FC = () => {
 
   // Initialize reCAPTCHA verifier
   useEffect(() => {
-    if (!recaptchaVerifier.current) {
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {
-          // reCAPTCHA solved
-        },
-      });
-    }
+    const initRecaptcha = () => {
+      try {
+        if (!recaptchaVerifier.current) {
+          recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'invisible',
+            callback: () => {
+              // reCAPTCHA solved
+            },
+            'expired-callback': () => {
+              // Response expired. Ask user to solve reCAPTCHA again.
+              setError('reCAPTCHA expired. Please try again.');
+            }
+          });
+        }
+      } catch (err: any) {
+        console.error('Error initializing reCAPTCHA:', err);
+        setError('Failed to initialize reCAPTCHA. Please refresh the page and try again.');
+      }
+    };
+
+    initRecaptcha();
 
     return () => {
       if (recaptchaVerifier.current) {
@@ -39,22 +52,35 @@ const CustomerPhoneAuth: React.FC = () => {
       return;
     }
 
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    
+    if (!phoneRegex.test(formattedPhoneNumber)) {
+      setError('Please enter a valid phone number with country code (e.g., +1234567890)');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const appVerifier = recaptchaVerifier.current;
-      const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+      if (!recaptchaVerifier.current) {
+        throw new Error('reCAPTCHA not initialized. Please refresh the page and try again.');
+      }
+
+      // Render reCAPTCHA widget
+      await recaptchaVerifier.current.render();
       
-      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, appVerifier);
+      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, recaptchaVerifier.current);
       confirmationResult.current = result;
       
       setShowOtpInput(true);
-      setSuccess('OTP sent successfully!');
+      setSuccess('OTP sent successfully! Please check your phone.');
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP');
       console.error('Error sending OTP:', err);
+      setError(err.message || 'Failed to send OTP. Please check your phone number and try again.');
     } finally {
       setLoading(false);
     }
@@ -83,10 +109,10 @@ const CustomerPhoneAuth: React.FC = () => {
       // Redirect to dashboard/home page
       setTimeout(() => {
         navigate('/customer');
-      }, 1000);
+      }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Invalid OTP. Please try again.');
       console.error('Error verifying OTP:', err);
+      setError(err.message || 'Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -117,7 +143,7 @@ const CustomerPhoneAuth: React.FC = () => {
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+1 234 567 8900"
+                    placeholder="Enter phone number with country code (e.g., +1234567890)"
                     className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md p-2 border"
                   />
                 </div>

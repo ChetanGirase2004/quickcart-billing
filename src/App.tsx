@@ -9,6 +9,8 @@ import { CartProvider } from "@/contexts/CartContext";
 // Pages
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
+import PhoneLoginTest from "./pages/PhoneLoginTest";
+import ImprovedPhoneLoginTest from "./pages/ImprovedPhoneLoginTest";
 
 // Customer
 import CustomerLayout from "./layouts/CustomerLayout";
@@ -44,6 +46,8 @@ const App = () => (
             <Routes>
               {/* Auth */}
               <Route path="/" element={<LoginPage />} />
+              <Route path="/phone-test" element={<PhoneLoginTest />} />
+              <Route path="/improved-phone-test" element={<ImprovedPhoneLoginTest />} />
 
               {/* Customer Routes */}
               <Route path="/customer" element={<CustomerLayout />}>
