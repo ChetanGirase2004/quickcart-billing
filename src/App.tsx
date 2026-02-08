@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import PhoneLoginTest from "./pages/PhoneLoginTest";
 import ImprovedPhoneLoginTest from "./pages/ImprovedPhoneLoginTest";
+import FirebaseDiagnosticsTest from "./pages/FirebaseDiagnosticsTest";
 
 // Customer
 import CustomerLayout from "./layouts/CustomerLayout";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/" element={<LoginPage />} />
               <Route path="/phone-test" element={<PhoneLoginTest />} />
               <Route path="/improved-phone-test" element={<ImprovedPhoneLoginTest />} />
+              <Route path="/firebase-diagnostics" element={<FirebaseDiagnosticsTest />} />
 
               {/* Customer Routes */}
               <Route path="/customer" element={<CustomerLayout />}>
