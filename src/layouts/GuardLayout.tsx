@@ -1,11 +1,11 @@
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Shield, LogOut } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useGuardAuth } from '@/contexts/GuardAuthContext';
 
 export default function GuardLayout() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { guardData, logout } = useGuardAuth();
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -18,7 +18,10 @@ export default function GuardLayout() {
             <div><h1 className="text-sm font-semibold">QuickCart Guard</h1><p className="text-xs text-muted-foreground">Gate 1 - Phoenix MarketCity</p></div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-right mr-2"><p className="text-sm font-medium">{user?.name || 'Guard'}</p><p className="text-xs text-muted-foreground">On Duty</p></div>
+            <div className="text-right mr-2">
+              <p className="text-sm font-medium">{guardData?.name || 'Guard'}</p>
+              <p className="text-xs text-muted-foreground">{guardData?.guardId || 'On Duty'}</p>
+            </div>
             <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><LogOut className="w-4 h-4 text-muted-foreground" /></button>
           </div>
         </div>

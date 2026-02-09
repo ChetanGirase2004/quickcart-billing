@@ -1,30 +1,26 @@
 import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Building2, Store, Package, Receipt, Users, Shield, BarChart3, Settings, LogOut, ShoppingCart, Menu, X, ChevronLeft } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { LayoutDashboard, Building2, Receipt, LogOut, ShoppingCart, Menu, X, ChevronLeft } from 'lucide-react';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
   { label: 'Malls', icon: Building2, path: '/admin/malls' },
-  { label: 'Shops', icon: Store, path: '/admin/shops' },
-  { label: 'Products', icon: Package, path: '/admin/products' },
   { label: 'Transactions', icon: Receipt, path: '/admin/transactions' },
-  { label: 'Users', icon: Users, path: '/admin/users' },
-  { label: 'Guards', icon: Shield, path: '/admin/guards' },
-  { label: 'Reports', icon: BarChart3, path: '/admin/reports' },
-  { label: 'Settings', icon: Settings, path: '/admin/settings' },
 ];
 
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { adminData, logout } = useAdminAuth();
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const handleLogout = () => { logout(); navigate('/'); };
+  const displayName = adminData?.adminName || 'Admin';
+  const email = adminData?.email || '';
 
   return (
     <div className="min-h-screen bg-background flex w-full">
@@ -50,8 +46,8 @@ export default function AdminLayout() {
         <div className="p-4 border-t border-sidebar-border">
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center"><span className="text-sm font-semibold text-sidebar-foreground">{user?.name?.charAt(0) || 'A'}</span></div>
-              <div className="flex-1 min-w-0"><p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name || 'Admin'}</p><p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p></div>
+              <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center"><span className="text-sm font-semibold text-sidebar-foreground">{displayName.charAt(0)}</span></div>
+              <div className="flex-1 min-w-0"><p className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</p><p className="text-xs text-sidebar-foreground/60 truncate">{email}</p></div>
               <button onClick={handleLogout} className="w-8 h-8 rounded-lg hover:bg-sidebar-accent flex items-center justify-center text-sidebar-foreground"><LogOut className="w-4 h-4" /></button>
             </div>
           ) : <button onClick={handleLogout} className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground"><LogOut className="w-5 h-5" /></button>}

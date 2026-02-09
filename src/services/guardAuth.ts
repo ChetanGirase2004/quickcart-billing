@@ -46,6 +46,27 @@ export const generateUniqueGuardId = async (): Promise<string> => {
   return guardId;
 };
 
+export const getGuardById = async (guardId: string): Promise<Guard | null> => {
+  try {
+    const trimmedId = guardId.trim().toUpperCase();
+    const q = query(collection(db, 'guards'), where('guardId', '==', trimmedId));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const guardDoc = querySnapshot.docs[0];
+    return {
+      uid: guardDoc.id,
+      ...guardDoc.data()
+    } as Guard;
+  } catch (error) {
+    console.error('Error fetching guard by ID:', error);
+    return null;
+  }
+};
+
 // Register guard with email/password
 export const registerGuardWithEmail = async (
   data: GuardRegistrationData,

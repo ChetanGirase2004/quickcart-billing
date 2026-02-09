@@ -1,292 +1,198 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginGuard, registerGuardWithEmail } from '@/services/guardAuth';
-
-interface SignInForm {
-  identifier: string;
-  password: string;
-}
-
-interface RegisterForm {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
+import { ConfirmationResult, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { getGuardById } from '@/services/guardAuth';
+import { checkGuardStatus } from '@/services/guardAuth';
+import { Guard } from '@/types/guard';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 const GuardAuth: React.FC = () => {
-  const [mode, setMode] = useState<'signin' | 'register'>('signin');
+  const [guardId, setGuardId] = useState('');
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'id' | 'otp'>('id');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [guardRecord, setGuardRecord] = useState<Guard | null>(null);
+  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
+  const confirmationResult = useRef<ConfirmationResult | null>(null);
   const navigate = useNavigate();
 
-  const [signInForm, setSignInForm] = useState<SignInForm>({
-    identifier: '',
-    password: ''
-  });
-
-  const [registerForm, setRegisterForm] = useState<RegisterForm>({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-
-  const handleSignInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setSignInForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setRegisterForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSignInSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await loginGuard(signInForm.identifier, signInForm.password);
-      
-      if (result.success && result.isGuard) {
-        navigate('/guard');
-      } else {
-        setError(result.error || 'Invalid credentials');
+  useEffect(() => {
+    return () => {
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
-      console.error(err);
-    } finally {
-      setLoading(false);
+    };
+  }, []);
+
+  const initRecaptcha = async () => {
+    if (!recaptchaVerifier.current) {
+      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'guard-recaptcha', {
+        size: 'invisible'
+      });
     }
+    await recaptchaVerifier.current.render();
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(null);
 
-    if (registerForm.password !== registerForm.confirmPassword) {
-      setError('Passwords do not match');
+    try {
+      const guard = await getGuardById(guardId);
+      if (!guard) {
+        setError('Guard ID not found. Please check and try again.');
+        setLoading(false);
+        return;
+      }
+
+      if (!guard.phone) {
+        setError('Guard phone number is missing. Contact an administrator.');
+        setLoading(false);
+        return;
+      }
+
+      if (guard.status !== 'active') {
+        setError('Your account is inactive. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      await initRecaptcha();
+      confirmationResult.current = await signInWithPhoneNumber(auth, guard.phone, recaptchaVerifier.current!);
+      setGuardRecord(guard);
+      setStep('otp');
+      setSuccess('OTP sent to your registered phone.');
+    } catch (err: any) {
+      console.error('Error sending guard OTP:', err);
+      setError(err.message || 'Failed to send OTP. Try again.');
+    } finally {
       setLoading(false);
-      return;
     }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
 
     try {
-      const result = await registerGuardWithEmail(
-        { name: registerForm.name, email: registerForm.email },
-        registerForm.password
-      );
-
-      if (result.success) {
-        setSuccess('Registration successful! Redirecting...');
-        setTimeout(() => {
-          setMode('signin');
-          setSuccess(null);
-        }, 2000);
-      } else {
-        setError(result.error || 'Failed to register');
+      if (!confirmationResult.current) {
+        setError('Please request an OTP first.');
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
-      console.error(err);
+
+      const result = await confirmationResult.current.confirm(otp);
+      if (guardRecord && guardRecord.uid !== result.user.uid) {
+        await auth.signOut();
+        setError('Guard verification failed. Please contact an administrator.');
+        setLoading(false);
+        return;
+      }
+
+      const status = await checkGuardStatus(result.user.uid);
+      if (!status.isGuard) {
+        await auth.signOut();
+        setError('Account is not authorized as a guard.');
+        setLoading(false);
+        return;
+      }
+
+      navigate('/guard');
+    } catch (err: any) {
+      console.error('Error verifying guard OTP:', err);
+      setError(err.message || 'Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {mode === 'signin' ? 'Sign In' : 'Register'}
-          </h2>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-2 text-center">
+          <CardTitle>Guard Login</CardTitle>
+          <CardDescription>Use your Guard ID and OTP to access the gate console.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Access denied</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert>
+              <AlertTitle>OTP sent</AlertTitle>
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
 
-        {/* Mode Toggle */}
-        <div className="flex justify-center space-x-4">
-          <button
-            onClick={() => {
-              setMode('signin');
-              setError(null);
-              setSuccess(null);
-            }}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${
-              mode === 'signin'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => {
-              setMode('register');
-              setError(null);
-              setSuccess(null);
-            }}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${
-              mode === 'register'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Register
-          </button>
-        </div>
-
-        {error && (
-          <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="text-green-500 text-sm text-center bg-green-50 p-3 rounded-md">
-            {success}
-          </div>
-        )}
-
-        {mode === 'signin' ? (
-          <form className="mt-8 space-y-6" onSubmit={handleSignInSubmit}>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
-                  Email or Phone Number
-                </label>
-                <input
-                  id="identifier"
-                  name="identifier"
-                  type="text"
+          {step === 'id' ? (
+            <form className="space-y-5" onSubmit={handleSendOtp}>
+              <div className="space-y-2">
+                <Label htmlFor="guard-id">Guard ID</Label>
+                <Input
+                  id="guard-id"
+                  value={guardId}
+                  onChange={(e) => setGuardId(e.target.value.toUpperCase())}
+                  placeholder="GUARD-XXXX-XXXXX"
+                  className={cn(error && 'border-destructive focus-visible:ring-destructive')}
                   required
-                  value={signInForm.identifier}
-                  onChange={handleSignInChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Email or Phone Number"
                 />
               </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Sending OTP...' : 'Send OTP'}
+              </Button>
+            </form>
+          ) : (
+            <form className="space-y-5" onSubmit={handleVerifyOtp}>
+              <div className="space-y-2">
+                <Label htmlFor="otp">Enter OTP</Label>
+                <Input
+                  id="otp"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="6-digit code"
+                  maxLength={6}
+                  className={cn('text-center tracking-[0.4em] font-mono', error && 'border-destructive focus-visible:ring-destructive')}
                   required
-                  value={signInForm.password}
-                  onChange={handleSignInChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Password"
                 />
               </div>
-            </div>
+              <div className="flex flex-col gap-3">
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? 'Verifying...' : 'Verify & Continue'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setStep('id');
+                    setOtp('');
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                >
+                  Use a different Guard ID
+                </Button>
+              </div>
+            </form>
+          )}
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleRegisterSubmit}>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Guard Name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required
-                  value={registerForm.name}
-                  onChange={handleRegisterChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Full Name"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={registerForm.email}
-                  onChange={handleRegisterChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Email address"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={registerForm.password}
-                  onChange={handleRegisterChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Password"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm Password
-                </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={registerForm.confirmPassword}
-                  onChange={handleRegisterChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Confirm Password"
-                />
-              </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                {loading ? 'Registering...' : 'Register'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+          <div id="guard-recaptcha" />
+        </CardContent>
+      </Card>
     </div>
   );
 };

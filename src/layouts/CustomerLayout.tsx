@@ -1,14 +1,20 @@
 import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, User, ArrowLeft, LogOut } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { motion } from 'framer-motion';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 export default function CustomerLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { cart } = useCart();
+  const { logout } = useCustomerAuth();
   const isHome = location.pathname === '/customer';
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   const getTitle = (path: string) => {
     if (path.includes('/scan')) return 'Scan Product';
@@ -42,7 +48,7 @@ export default function CustomerLayout() {
             {!isHome && <h1 className="text-lg font-semibold">{getTitle(location.pathname)}</h1>}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/customer/cart')} className="relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted">
+            <button onClick={() => navigate('/customer/cart')} className="relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted" aria-label="View cart">
               <ShoppingCart className="w-5 h-5" />
               {cart.totalItems > 0 && (
                 <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center">
@@ -50,9 +56,20 @@ export default function CustomerLayout() {
                 </motion.span>
               )}
             </button>
-            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+            <button
+              onClick={handleLogout}
+              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80"
+              aria-label="Sign out"
+            >
               <User className="w-5 h-5 text-muted-foreground" />
-            </div>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="hidden sm:flex w-10 h-10 rounded-full bg-muted items-center justify-center hover:bg-muted/80"
+              aria-label="Sign out"
+            >
+              <LogOut className="w-5 h-5 text-muted-foreground" />
+            </button>
           </div>
         </div>
       </header>

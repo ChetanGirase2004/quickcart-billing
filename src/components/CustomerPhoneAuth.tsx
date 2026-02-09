@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import { auth } from '@/lib/firebase';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 const CustomerPhoneAuth: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
@@ -118,99 +124,89 @@ const CustomerPhoneAuth: React.FC = () => {
     }
   };
 
+  const maskedPhone =
+    phoneNumber.length > 4 ? `${phoneNumber.slice(0, 2)}••••${phoneNumber.slice(-2)}` : phoneNumber;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Customer Login
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in with your phone number
-          </p>
-        </div>
-        
-        <div className="bg-white shadow rounded-lg p-6">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-2 text-center">
+          <CardTitle>Customer Login</CardTitle>
+          <CardDescription>Sign in with your phone number to continue.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
           {!showOtpInput ? (
             <div className="space-y-4">
-              <div>
-                <label htmlFor="phone-number" className="block text-sm font-medium text-gray-700">
-                  Phone Number
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <input
-                    id="phone-number"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Enter phone number with country code (e.g., +1234567890)"
-                    className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md p-2 border"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone-number">Phone Number</Label>
+                <Input
+                  id="phone-number"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Enter phone number with country code (e.g., +1234567890)"
+                  className={cn(error && 'border-destructive focus-visible:ring-destructive')}
+                />
               </div>
-              
-              <button
-                onClick={sendOtp}
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
+              <Button onClick={sendOtp} disabled={loading} className="w-full">
                 {loading ? 'Sending OTP...' : 'Send OTP'}
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              <div>
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
-                  Enter OTP
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <input
-                    id="otp"
-                    type="text"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="Enter 6-digit code"
-                    className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md p-2 border"
-                  />
-                </div>
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                We&apos;ve sent a 6-digit OTP to {maskedPhone || 'your phone'}.
               </div>
-              
-              <button
-                onClick={verifyOtp}
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Verify OTP'}
-              </button>
-              
-              <button
-                onClick={() => {
-                  setShowOtpInput(false);
-                  setOtp('');
-                }}
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Back to Phone Number
-              </button>
+              <div className="space-y-2">
+                <Label htmlFor="otp">Enter OTP</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Enter 6-digit code"
+                  className={cn('text-center tracking-[0.5em] font-mono', error && 'border-destructive focus-visible:ring-destructive')}
+                />
+              </div>
+              <div className="flex flex-col gap-3">
+                <Button onClick={verifyOtp} disabled={loading} className="w-full">
+                  {loading ? 'Verifying...' : 'Verify OTP'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowOtpInput(false);
+                    setOtp('');
+                    setError('');
+                    setSuccess('');
+                  }}
+                  className="w-full"
+                >
+                  Back to Phone Number
+                </Button>
+              </div>
             </div>
           )}
-          
-          <div id="recaptcha-container" className="mt-4"></div>
-          
+
+          <div id="recaptcha-container" />
+
           {error && (
-            <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertTitle>Authentication error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-          
+
           {success && (
-            <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-md text-sm">
-              {success}
-            </div>
+            <Alert>
+              <AlertTitle>Success</AlertTitle>
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

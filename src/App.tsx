@@ -3,20 +3,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { GuardAuthProvider } from "@/contexts/GuardAuthContext";
+import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
-import PhoneLoginTest from "./pages/PhoneLoginTest";
-import ImprovedPhoneLoginTest from "./pages/ImprovedPhoneLoginTest";
-import FirebaseDiagnosticsTest from "./pages/FirebaseDiagnosticsTest";
-
-// Test Components
-import FirebaseTest from "@/components/FirebaseTest";
+import CustomerPhoneAuth from "@/components/CustomerPhoneAuth";
 
 // Admin Components
 import AdminAuth from "@/components/admin/AdminAuth";
@@ -25,6 +20,7 @@ import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 // Guard Components
 import GuardAuth from "@/components/guard/GuardAuth";
 import GuardRoleGuard from "@/components/guard/GuardRoleGuard";
+import CustomerProtectedRoute from "@/components/customer/CustomerProtectedRoute";
 
 // Customer
 import CustomerLayout from "./layouts/CustomerLayout";
@@ -51,7 +47,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
+    <CustomerAuthProvider>
       <AdminAuthProvider>
         <GuardAuthProvider>
           <CartProvider>
@@ -62,10 +58,7 @@ const App = () => (
                 <Routes>
                   {/* Auth */}
                   <Route path="/" element={<LoginPage />} />
-                  <Route path="/phone-test" element={<PhoneLoginTest />} />
-                  <Route path="/improved-phone-test" element={<ImprovedPhoneLoginTest />} />
-                  <Route path="/firebase-diagnostics" element={<FirebaseDiagnosticsTest />} />
-                  <Route path="/firebase-test" element={<FirebaseTest />} />
+                  <Route path="/customer/auth" element={<CustomerPhoneAuth />} />
 
                   {/* Admin Auth Routes */}
                   <Route path="/admin/auth" element={<AdminAuth />} />
@@ -97,7 +90,14 @@ const App = () => (
                   </Route>
 
                   {/* Customer Routes */}
-                  <Route path="/customer" element={<CustomerLayout />}>
+                  <Route
+                    path="/customer"
+                    element={
+                      <CustomerProtectedRoute>
+                        <CustomerLayout />
+                      </CustomerProtectedRoute>
+                    }
+                  >
                     <Route index element={<CustomerHome />} />
                     <Route path="scan" element={<ScanProduct />} />
                     <Route path="cart" element={<CartPage />} />
@@ -114,7 +114,7 @@ const App = () => (
           </CartProvider>
         </GuardAuthProvider>
       </AdminAuthProvider>
-    </AuthProvider>
+    </CustomerAuthProvider>
   </QueryClientProvider>
 );
 
