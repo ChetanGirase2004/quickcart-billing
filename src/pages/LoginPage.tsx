@@ -37,7 +37,11 @@ export default function LoginPage() {
     } else {
       setIsLoading(true);
       await login(selectedRole!, {});
-      navigate(selectedRole === 'customer' ? '/customer' : '/guard');
+      if (selectedRole === 'customer') {
+        navigate('/customer');
+      } else if (selectedRole === 'guard') {
+        navigate('/guard/auth');
+      }
     }
   };
 

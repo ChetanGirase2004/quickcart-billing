@@ -15,7 +15,7 @@ const GuardRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!currentUser) {
-    return <Navigate to="/guard/login" replace />;
+    return <Navigate to="/guard/auth" replace />;
   }
 
   if (!isGuard) {

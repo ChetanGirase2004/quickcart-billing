@@ -54,9 +54,9 @@ const GuardRegister: React.FC = () => {
         });
         setPassword('');
         setConfirmPassword('');
-        // Redirect to login after 2 seconds
+        // Redirect to auth page after 2 seconds
         setTimeout(() => {
-          navigate('/guard/login');
+          navigate('/guard/auth');
         }, 2000);
       } else {
         setError(result.error || 'Failed to register guard');
@@ -83,7 +83,7 @@ const GuardRegister: React.FC = () => {
         // In a real implementation, you would proceed to OTP verification
         // For now, we'll just show a success message
         setTimeout(() => {
-          navigate('/guard/login');
+          navigate('/guard/auth');
         }, 2000);
       } else {
         setError(result.error || 'Failed to initiate phone registration');
@@ -284,7 +284,7 @@ const GuardRegister: React.FC = () => {
         
         <div className="text-center">
           <button
-            onClick={() => navigate('/guard/login')}
+            onClick={() => navigate('/guard/auth')}
             className="font-medium text-indigo-600 hover:text-indigo-500"
           >
             Back to Guard Login

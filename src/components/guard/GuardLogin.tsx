@@ -109,7 +109,7 @@ const GuardLogin: React.FC = () => {
         
         <div className="text-center">
           <button
-            onClick={() => navigate('/guard/register')}
+            onClick={() => navigate('/guard/auth')}
             className="font-medium text-indigo-600 hover:text-indigo-500"
           >
             Register as Guard

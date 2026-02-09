@@ -24,8 +24,7 @@ import AdminRegister from "@/components/admin/AdminRegister";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 
 // Guard Components
-import GuardLogin from "@/components/guard/GuardLogin";
-import GuardRegister from "@/components/guard/GuardRegister";
+import GuardAuth from "@/components/guard/GuardAuth";
 import GuardRoleGuard from "@/components/guard/GuardRoleGuard";
 
 // Customer
@@ -86,8 +85,7 @@ const App = () => (
                   </Route>
 
                   {/* Guard Auth Routes */}
-                  <Route path="/guard/login" element={<GuardLogin />} />
-                  <Route path="/guard/register" element={<GuardRegister />} />
+                  <Route path="/guard/auth" element={<GuardAuth />} />
 
                   {/* Guard Protected Routes */}
                   <Route path="/guard" element={
