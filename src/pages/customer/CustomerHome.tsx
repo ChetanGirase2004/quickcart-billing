@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ScanBarcode, ShoppingCart, CreditCard, Receipt, MapPin, Settings, ChevronRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { useCart } from '@/contexts/CartContext';
 
 const actions = [
@@ -15,8 +15,12 @@ const actions = [
 
 export default function CustomerHome() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { currentUser } = useCustomerAuth();
   const { cart } = useCart();
+  const displayName =
+    currentUser?.displayName ||
+    currentUser?.phoneNumber ||
+    'there';
 
   return (
     <div className="px-4 py-6 space-y-8">
@@ -24,7 +28,7 @@ export default function CustomerHome() {
         <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" />
         <div className="relative">
           <div className="flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4" /><span className="text-sm text-white/80">Good afternoon</span></div>
-          <h2 className="text-2xl font-bold mb-1">Hi, {user?.name?.split(' ')[0] || 'there'}! 👋</h2>
+          <h2 className="text-2xl font-bold mb-1">Hi, {displayName.split(' ')[0]}! 👋</h2>
           <p className="text-white/70 text-sm">Ready to shop? Start scanning to add items.</p>
         </div>
       </motion.div>
