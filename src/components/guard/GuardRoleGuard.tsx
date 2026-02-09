@@ -1,7 +1,6 @@
 import React from 'react';
 import { useGuardAuth } from '@/contexts/GuardAuthContext';
 import { Navigate } from 'react-router-dom';
-import GuardLogin from '@/components/guard/GuardLogin';
 
 const GuardRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isGuard, loading } = useGuardAuth();

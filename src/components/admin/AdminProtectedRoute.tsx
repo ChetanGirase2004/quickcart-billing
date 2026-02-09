@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Navigate } from 'react-router-dom';
-import AdminLogin from '@/components/admin/AdminLogin';
 
 const AdminProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isAdmin, loading } = useAdminAuth();
