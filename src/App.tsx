@@ -19,8 +19,7 @@ import FirebaseDiagnosticsTest from "./pages/FirebaseDiagnosticsTest";
 import FirebaseTest from "@/components/FirebaseTest";
 
 // Admin Components
-import AdminLogin from "@/components/admin/AdminLogin";
-import AdminRegister from "@/components/admin/AdminRegister";
+import AdminAuth from "@/components/admin/AdminAuth";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 
 // Guard Components
@@ -69,8 +68,7 @@ const App = () => (
                   <Route path="/firebase-test" element={<FirebaseTest />} />
 
                   {/* Admin Auth Routes */}
-                  <Route path="/admin/login" element={<AdminLogin />} />
-                  <Route path="/admin/register" element={<AdminRegister />} />
+                  <Route path="/admin/auth" element={<AdminAuth />} />
 
                   {/* Admin Protected Routes */}
                   <Route path="/admin" element={

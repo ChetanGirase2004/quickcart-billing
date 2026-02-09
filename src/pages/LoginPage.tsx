@@ -28,7 +28,7 @@ export default function LoginPage() {
     if (selectedRole === 'admin') {
       setIsLoading(true);
       await login(selectedRole, {});
-      navigate('/admin');
+      navigate('/admin/auth');
     } else if (step === 'credentials') {
       setIsLoading(true);
       await new Promise((r) => setTimeout(r, 1000));
