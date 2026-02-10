@@ -1,13 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '@/lib/firebase';
+import { loginCustomerSession } from '@/services/guardAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+
+const DEMO_OTP = '123456';
 
 const CustomerPhoneAuth: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
@@ -16,41 +17,8 @@ const CustomerPhoneAuth: React.FC = () => {
   const [showOtpInput, setShowOtpInput] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
-  
-  const recaptchaVerifier = useRef<any>(null);
-  const confirmationResult = useRef<ConfirmationResult | null>(null);
+
   const navigate = useNavigate();
-
-  // Initialize reCAPTCHA verifier
-  useEffect(() => {
-    const initRecaptcha = () => {
-      try {
-        if (!recaptchaVerifier.current) {
-          recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-            callback: () => {
-              // reCAPTCHA solved
-            },
-            'expired-callback': () => {
-              // Response expired. Ask user to solve reCAPTCHA again.
-              setError('reCAPTCHA expired. Please try again.');
-            }
-          });
-        }
-      } catch (err: any) {
-        console.error('Error initializing reCAPTCHA:', err);
-        setError('Failed to initialize reCAPTCHA. Please refresh the page and try again.');
-      }
-    };
-
-    initRecaptcha();
-
-    return () => {
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
-      }
-    };
-  }, []);
 
   const sendOtp = async () => {
     if (!phoneNumber) {
@@ -58,10 +26,9 @@ const CustomerPhoneAuth: React.FC = () => {
       return;
     }
 
-    // Validate phone number format (basic validation)
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-    
+
     if (!phoneRegex.test(formattedPhoneNumber)) {
       setError('Please enter a valid phone number with country code (e.g., +1234567890)');
       return;
@@ -71,25 +38,12 @@ const CustomerPhoneAuth: React.FC = () => {
     setError('');
     setSuccess('');
 
-    try {
-      if (!recaptchaVerifier.current) {
-        throw new Error('reCAPTCHA not initialized. Please refresh the page and try again.');
-      }
-
-      // Render reCAPTCHA widget
-      await recaptchaVerifier.current.render();
-      
-      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, recaptchaVerifier.current);
-      confirmationResult.current = result;
-      
+    setTimeout(() => {
       setShowOtpInput(true);
-      setSuccess('OTP sent successfully! Please check your phone.');
-    } catch (err: any) {
-      console.error('Error sending OTP:', err);
-      setError(err.message || 'Failed to send OTP. Please check your phone number and try again.');
-    } finally {
+      setSuccess('OTP sent successfully! Use 123456 for demo login.');
       setLoading(false);
-    }
+      setPhoneNumber(formattedPhoneNumber);
+    }, 500);
   };
 
   const verifyOtp = async () => {
@@ -98,34 +52,31 @@ const CustomerPhoneAuth: React.FC = () => {
       return;
     }
 
-    if (!confirmationResult.current) {
-      setError('Please send OTP first');
-      return;
-    }
-
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const result = await confirmationResult.current.confirm(otp);
-      console.log('User signed in successfully:', result.user);
+      if (otp !== DEMO_OTP) {
+        setError('Invalid OTP. Please use 123456 in demo mode.');
+        return;
+      }
+
+      await loginCustomerSession(phoneNumber);
       setSuccess('Authentication successful! Redirecting...');
-      
-      // Redirect to dashboard/home page
+
       setTimeout(() => {
         navigate('/customer');
-      }, 1500);
-    } catch (err: any) {
+      }, 1200);
+    } catch (err: unknown) {
       console.error('Error verifying OTP:', err);
-      setError(err.message || 'Invalid OTP. Please try again.');
+      setError(err instanceof Error ? err.message : 'Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const maskedPhone =
-    phoneNumber.length > 4 ? `${phoneNumber.slice(0, 2)}••••${phoneNumber.slice(-2)}` : phoneNumber;
+  const maskedPhone = phoneNumber.length > 4 ? `${phoneNumber.slice(0, 2)}••••${phoneNumber.slice(-2)}` : phoneNumber;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
@@ -190,7 +141,7 @@ const CustomerPhoneAuth: React.FC = () => {
             </div>
           )}
 
-          <div id="recaptcha-container" />
+          <div id="recaptcha-container" className="hidden" />
 
           {error && (
             <Alert variant="destructive">

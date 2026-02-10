@@ -1,124 +1,156 @@
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  UserCredential 
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { db, doc, setDoc, getDoc } from '@/lib/firestore';
 import { Admin, AdminFormData } from '@/types/admin';
 
-export const registerAdmin = async (data: AdminFormData): Promise<{ success: boolean; error?: string }> => {
+const ADMIN_STORAGE_KEY = 'quickcart_admin_account';
+const ADMIN_SESSION_KEY = 'quickcart_admin_session';
+
+interface StoredAdminAccount {
+  uid: string;
+  mallName: string;
+  adminName: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: 'admin';
+  createdAt: string;
+}
+
+interface StoredAdminSession {
+  uid: string;
+}
+
+const toAdmin = (storedAdmin: StoredAdminAccount): Admin => ({
+  uid: storedAdmin.uid,
+  mallName: storedAdmin.mallName,
+  adminName: storedAdmin.adminName,
+  email: storedAdmin.email,
+  phone: storedAdmin.phone,
+  role: storedAdmin.role,
+  createdAt: new Date(storedAdmin.createdAt)
+});
+
+const getStoredAdmin = (): StoredAdminAccount | null => {
+  const raw = localStorage.getItem(ADMIN_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
   try {
-    // Create user with email and password
-    const userCredential: UserCredential = await createUserWithEmailAndPassword(
-      auth, 
-      data.email, 
-      data.password
-    );
-    
-    const user = userCredential.user;
-    
-    // Save admin data to Firestore
-    const adminData: Omit<Admin, 'createdAt'> = {
-      uid: user.uid,
-      mallName: data.mallName,
-      adminName: data.adminName,
-      email: data.email,
-      phone: data.phone,
-      role: 'admin'
-    };
-    
-    await setDoc(doc(db, 'admins', user.uid), {
-      ...adminData,
-      createdAt: new Date()
-    });
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error registering admin:', error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to register admin' 
-    };
+    return JSON.parse(raw) as StoredAdminAccount;
+  } catch (error) {
+    console.error('Failed to parse stored admin account:', error);
+    return null;
   }
 };
 
-export const loginAdmin = async (email: string, password: string): Promise<{ 
-  success: boolean; 
-  error?: string; 
+const notifyAuthChange = () => {
+  window.dispatchEvent(new Event('quickcart-auth-changed'));
+};
+
+const setAdminSession = (uid: string) => {
+  const session: StoredAdminSession = { uid };
+  localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+  notifyAuthChange();
+};
+
+export const hasRegisteredAdmin = (): boolean => Boolean(getStoredAdmin());
+
+export const registerAdmin = async (data: AdminFormData): Promise<{ success: boolean; error?: string }> => {
+  const existingAdmin = getStoredAdmin();
+  if (existingAdmin) {
+    return { success: false, error: 'An admin account already exists. Please sign in.' };
+  }
+
+  const newAdmin: StoredAdminAccount = {
+    uid: `admin-${Date.now()}`,
+    mallName: data.mallName.trim(),
+    adminName: data.adminName.trim(),
+    email: data.email.trim().toLowerCase(),
+    phone: data.phone.trim(),
+    password: data.password,
+    role: 'admin',
+    createdAt: new Date().toISOString()
+  };
+
+  localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(newAdmin));
+  setAdminSession(newAdmin.uid);
+
+  return { success: true };
+};
+
+export const loginAdmin = async (
+  email: string,
+  password: string
+): Promise<{
+  success: boolean;
+  error?: string;
   isAdmin?: boolean;
-  adminData?: Admin 
+  adminData?: Admin;
 }> => {
-  try {
-    // Sign in with email and password
-    const userCredential: UserCredential = await signInWithEmailAndPassword(
-      auth, 
-      email, 
-      password
-    );
-    
-    const user = userCredential.user;
-    
-    // Check if user is admin by fetching from Firestore
-    const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-    
-    if (!adminDoc.exists()) {
-      return { 
-        success: false, 
-        error: 'User is not an admin', 
-        isAdmin: false 
-      };
-    }
-    
-    const adminData = {
-      uid: user.uid,
-      ...adminDoc.data()
-    } as Admin;
-    
-    if (adminData.role !== 'admin') {
-      return { 
-        success: false, 
-        error: 'User is not an admin', 
-        isAdmin: false 
-      };
-    }
-    
-    return { 
-      success: true, 
-      isAdmin: true, 
-      adminData 
-    };
-  } catch (error: any) {
-    console.error('Error logging in admin:', error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to login' 
+  const storedAdmin = getStoredAdmin();
+
+  if (!storedAdmin) {
+    return {
+      success: false,
+      error: 'No admin account found. Please register first.'
     };
   }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (storedAdmin.email !== normalizedEmail || storedAdmin.password !== password) {
+    return {
+      success: false,
+      error: 'Invalid credentials. Please check your email and password.'
+    };
+  }
+
+  setAdminSession(storedAdmin.uid);
+
+  return {
+    success: true,
+    isAdmin: true,
+    adminData: toAdmin(storedAdmin)
+  };
+};
+
+export const logoutAdmin = async (): Promise<void> => {
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+  notifyAuthChange();
 };
 
 export const checkAdminStatus = async (uid: string): Promise<{
   isAdmin: boolean;
   adminData?: Admin;
 }> => {
-  try {
-    const adminDoc = await getDoc(doc(db, 'admins', uid));
-    
-    if (!adminDoc.exists()) {
-      return { isAdmin: false };
-    }
-    
-    const adminData = {
-      uid,
-      ...adminDoc.data()
-    } as Admin;
-    
-    return { 
-      isAdmin: adminData.role === 'admin', 
-      adminData: adminData.role === 'admin' ? adminData : undefined 
-    };
-  } catch (error) {
-    console.error('Error checking admin status:', error);
+  const storedAdmin = getStoredAdmin();
+  if (!storedAdmin || storedAdmin.uid !== uid || storedAdmin.role !== 'admin') {
     return { isAdmin: false };
   }
+
+  return {
+    isAdmin: true,
+    adminData: toAdmin(storedAdmin)
+  };
+};
+
+export const getCurrentAdminSession = (): Admin | null => {
+  const storedSession = localStorage.getItem(ADMIN_SESSION_KEY);
+  if (!storedSession) {
+    return null;
+  }
+
+  let parsedSession: StoredAdminSession;
+
+  try {
+    parsedSession = JSON.parse(storedSession) as StoredAdminSession;
+  } catch (error) {
+    console.error('Failed to parse admin session:', error);
+    return null;
+  }
+
+  const storedAdmin = getStoredAdmin();
+  if (!storedAdmin || storedAdmin.uid !== parsedSession.uid) {
+    return null;
+  }
+
+  return toAdmin(storedAdmin);
 };
