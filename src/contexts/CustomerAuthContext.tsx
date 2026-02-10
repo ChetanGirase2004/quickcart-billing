@@ -1,13 +1,17 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { checkAdminStatus } from '@/services/adminAuth';
-import { checkGuardStatus } from '@/services/guardAuth';
+import { clearUserSession, getCurrentUserSession } from '@/services/guardAuth';
 
 type CustomerRole = 'customer' | 'admin' | 'guard' | null;
 
+interface SessionUser {
+  uid: string;
+  role: 'customer' | 'guard';
+  displayName?: string;
+  phoneNumber?: string;
+}
+
 interface CustomerAuthContextType {
-  currentUser: User | null;
+  currentUser: SessionUser | null;
   role: CustomerRole;
   isCustomer: boolean;
   loading: boolean;
@@ -25,52 +29,41 @@ export const useCustomerAuth = () => {
 };
 
 export const CustomerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [role, setRole] = useState<CustomerRole>(null);
   const [loading, setLoading] = useState(true);
 
-  const logout = async () => {
-    try {
-      await auth.signOut();
+  const syncCustomerSession = () => {
+    const sessionUser = getCurrentUserSession();
+
+    if (!sessionUser) {
       setCurrentUser(null);
       setRole(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
+      setLoading(false);
+      return;
     }
+
+    setCurrentUser(sessionUser);
+    setRole(sessionUser.role);
+    setLoading(false);
+  };
+
+  const logout = async () => {
+    await clearUserSession();
+    syncCustomerSession();
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setCurrentUser(null);
-        setRole(null);
-        setLoading(false);
-        return;
-      }
+    syncCustomerSession();
 
-      setCurrentUser(user);
-      try {
-        const [adminStatus, guardStatus] = await Promise.all([
-          checkAdminStatus(user.uid),
-          checkGuardStatus(user.uid)
-        ]);
+    const handleAuthChange = () => {
+      syncCustomerSession();
+    };
 
-        if (adminStatus.isAdmin) {
-          setRole('admin');
-        } else if (guardStatus.isGuard) {
-          setRole('guard');
-        } else {
-          setRole('customer');
-        }
-      } catch (error) {
-        console.error('Error determining user role:', error);
-        setRole(null);
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    return unsubscribe;
+    window.addEventListener('quickcart-auth-changed', handleAuthChange);
+    return () => {
+      window.removeEventListener('quickcart-auth-changed', handleAuthChange);
+    };
   }, []);
 
   const value = useMemo(
@@ -81,12 +74,8 @@ export const CustomerAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
       loading,
       logout
     }),
-    [currentUser, role, loading]
+    [currentUser, role, loading, logout]
   );
 
-  return (
-    <CustomerAuthContext.Provider value={value}>
-      {!loading && children}
-    </CustomerAuthContext.Provider>
-  );
+  return <CustomerAuthContext.Provider value={value}>{!loading && children}</CustomerAuthContext.Provider>;
 };

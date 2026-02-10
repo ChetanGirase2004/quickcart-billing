@@ -1,183 +1,144 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  UserCredential
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { db, doc, setDoc, getDoc, query, where, getDocs, collection } from '@/lib/guardFirestore';
 import { Guard, GuardRegistrationData } from '@/types/guard';
 
-// Generate unique guard ID
-export const generateGuardId = (): string => {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substr(2, 5);
-  return `GUARD-${timestamp}-${random}`.toUpperCase();
-};
+const GUARD_STORAGE_KEY = 'quickcart_guard_records';
+const USER_SESSION_KEY = 'quickcart_user_session';
 
-// Check if guard ID is unique
-export const isGuardIdUnique = async (guardId: string): Promise<boolean> => {
+interface StoredGuard extends Omit<Guard, 'createdAt'> {
+  createdAt: string;
+  otp: string;
+}
+
+interface AppSessionUser {
+  uid: string;
+  role: 'customer' | 'guard';
+  displayName?: string;
+  phoneNumber?: string;
+}
+
+const defaultGuards: StoredGuard[] = [
+  {
+    uid: 'guard-001',
+    guardId: 'GUARD-DEMO-001',
+    name: 'Gate Officer',
+    phone: '+911234567890',
+    role: 'guard',
+    status: 'active',
+    createdAt: new Date('2024-01-01').toISOString(),
+    otp: '123456'
+  }
+];
+
+const readGuards = (): StoredGuard[] => {
+  const raw = localStorage.getItem(GUARD_STORAGE_KEY);
+  if (!raw) {
+    localStorage.setItem(GUARD_STORAGE_KEY, JSON.stringify(defaultGuards));
+    return defaultGuards;
+  }
+
   try {
-    const q = query(collection(db, 'guards'), where('guardId', '==', guardId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.empty;
+    const parsed = JSON.parse(raw) as StoredGuard[];
+    return parsed.length > 0 ? parsed : defaultGuards;
   } catch (error) {
-    console.error('Error checking guard ID uniqueness:', error);
-    return false;
+    console.error('Failed to parse guard records:', error);
+    localStorage.setItem(GUARD_STORAGE_KEY, JSON.stringify(defaultGuards));
+    return defaultGuards;
   }
 };
 
-// Generate unique guard ID (retry if not unique)
-export const generateUniqueGuardId = async (): Promise<string> => {
-  let guardId: string;
-  let isUnique = false;
-  let attempts = 0;
-  const maxAttempts = 5;
-
-  do {
-    guardId = generateGuardId();
-    isUnique = await isGuardIdUnique(guardId);
-    attempts++;
-  } while (!isUnique && attempts < maxAttempts);
-
-  if (!isUnique) {
-    throw new Error('Unable to generate unique guard ID after maximum attempts');
-  }
-
-  return guardId;
+const notifyAuthChange = () => {
+  window.dispatchEvent(new Event('quickcart-auth-changed'));
 };
 
-export const getGuardById = async (guardId: string): Promise<Guard | null> => {
+const writeSession = (session: AppSessionUser) => {
+  localStorage.setItem(USER_SESSION_KEY, JSON.stringify(session));
+  notifyAuthChange();
+};
+
+export const clearUserSession = async (): Promise<void> => {
+  localStorage.removeItem(USER_SESSION_KEY);
+  notifyAuthChange();
+};
+
+export const getCurrentUserSession = (): AppSessionUser | null => {
+  const raw = localStorage.getItem(USER_SESSION_KEY);
+  if (!raw) {
+    return null;
+  }
+
   try {
-    const trimmedId = guardId.trim().toUpperCase();
-    const q = query(collection(db, 'guards'), where('guardId', '==', trimmedId));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      return null;
-    }
-
-    const guardDoc = querySnapshot.docs[0];
-    return {
-      uid: guardDoc.id,
-      ...guardDoc.data()
-    } as Guard;
+    return JSON.parse(raw) as AppSessionUser;
   } catch (error) {
-    console.error('Error fetching guard by ID:', error);
+    console.error('Failed to parse user session:', error);
     return null;
   }
 };
 
-// Register guard with email/password
+export const generateGuardId = (): string => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 5);
+  return `GUARD-${timestamp}-${random}`.toUpperCase();
+};
+
+export const isGuardIdUnique = async (guardId: string): Promise<boolean> => {
+  const guards = readGuards();
+  return !guards.some((guard) => guard.guardId === guardId.trim().toUpperCase());
+};
+
+export const generateUniqueGuardId = async (): Promise<string> => {
+  let attempts = 0;
+  while (attempts < 5) {
+    const guardId = generateGuardId();
+    const unique = await isGuardIdUnique(guardId);
+    if (unique) {
+      return guardId;
+    }
+    attempts += 1;
+  }
+
+  throw new Error('Unable to generate unique guard ID after maximum attempts');
+};
+
+const mapGuard = (guard: StoredGuard): Guard => ({
+  ...guard,
+  createdAt: new Date(guard.createdAt)
+});
+
+export const getGuardById = async (guardId: string): Promise<Guard | null> => {
+  const guards = readGuards();
+  const normalizedId = guardId.trim().toUpperCase();
+  const guard = guards.find((item) => item.guardId === normalizedId);
+  return guard ? mapGuard(guard) : null;
+};
+
 export const registerGuardWithEmail = async (
   data: GuardRegistrationData,
-  password: string
-): Promise<{ success: boolean; error?: string; user?: any }> => {
-  try {
-    if (!data.email) {
-      return { success: false, error: 'Email is required for email registration' };
-    }
+  _password: string
+): Promise<{ success: boolean; error?: string; user?: { uid: string } }> => {
+  const guards = readGuards();
+  const guardId = await generateUniqueGuardId();
 
-    // Create user with email and password
-    const userCredential: UserCredential = await createUserWithEmailAndPassword(
-      auth,
-      data.email,
-      password
-    );
+  const newGuard: StoredGuard = {
+    uid: `guard-${Date.now()}`,
+    guardId,
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    role: 'guard',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    otp: '123456'
+  };
 
-    const user = userCredential.user;
-
-    // Generate unique guard ID
-    const guardId = await generateUniqueGuardId();
-
-    // Save guard data to Firestore
-    const guardData: Omit<Guard, 'createdAt'> = {
-      uid: user.uid,
-      guardId,
-      name: data.name,
-      email: data.email,
-      role: 'guard',
-      status: 'active'
-    };
-
-    await setDoc(doc(db, 'guards', user.uid), {
-      ...guardData,
-      createdAt: new Date()
-    });
-
-    return { success: true, user };
-  } catch (error: any) {
-    console.error('Error registering guard with email:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to register guard'
-    };
-  }
+  localStorage.setItem(GUARD_STORAGE_KEY, JSON.stringify([...guards, newGuard]));
+  return { success: true, user: { uid: newGuard.uid } };
 };
 
-// Register guard with phone number
-export const registerGuardWithPhone = async (
-  data: GuardRegistrationData
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    if (!data.phone) {
-      return { success: false, error: 'Phone number is required for phone registration' };
-    }
+export const registerGuardWithPhone = async (_data: GuardRegistrationData): Promise<{ success: boolean; error?: string }> => ({ success: true });
 
-    // For phone registration, we'll return a confirmation result
-    // The actual guard creation will happen after OTP verification
-    
-    // Note: In a real implementation, you would use signInWithPhoneNumber here
-    // and handle the OTP verification flow
-    
-    return {
-      success: true
-    };
-  } catch (error: any) {
-    console.error('Error initiating phone registration:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to initiate phone registration'
-    };
-  }
-};
+export const completePhoneRegistration = async (_user: { uid: string }, _data: GuardRegistrationData): Promise<{ success: boolean; error?: string }> => ({ success: true });
 
-// Complete phone registration after OTP verification
-export const completePhoneRegistration = async (
-  user: any, // Firebase user object after OTP verification
-  data: GuardRegistrationData
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // Generate unique guard ID
-    const guardId = await generateUniqueGuardId();
-
-    // Save guard data to Firestore
-    const guardData: Omit<Guard, 'createdAt'> = {
-      uid: user.uid,
-      guardId,
-      name: data.name,
-      phone: data.phone,
-      role: 'guard',
-      status: 'active'
-    };
-
-    await setDoc(doc(db, 'guards', user.uid), {
-      ...guardData,
-      createdAt: new Date()
-    });
-
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error completing phone registration:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to complete phone registration'
-    };
-  }
-};
-
-// Login guard
 export const loginGuard = async (
-  identifier: string, // email or phone number
+  identifier: string,
   password?: string
 ): Promise<{
   success: boolean;
@@ -185,85 +146,41 @@ export const loginGuard = async (
   isGuard?: boolean;
   guardData?: Guard;
 }> => {
-  try {
-    let userCredential: UserCredential;
-
-    // Determine if identifier is email or phone
-    if (identifier.includes('@')) {
-      // Email login
-      if (!password) {
-        return { success: false, error: 'Password is required for email login' };
-      }
-      userCredential = await signInWithEmailAndPassword(auth, identifier, password);
-    } else {
-      // Phone login would require OTP flow
-      // For simplicity in this implementation, we're assuming email/password
-      return { success: false, error: 'Phone login requires OTP verification' };
-    }
-
-    const user = userCredential.user;
-
-    // Check if user is guard by fetching from Firestore
-    const guardDoc = await getDoc(doc(db, 'guards', user.uid));
-
-    if (!guardDoc.exists()) {
-      return {
-        success: false,
-        error: 'User is not registered as a guard',
-        isGuard: false
-      };
-    }
-
-    const guardData = {
-      uid: user.uid,
-      ...guardDoc.data()
-    } as Guard;
-
-    if (guardData.role !== 'guard') {
-      return {
-        success: false,
-        error: 'User is not a guard',
-        isGuard: false
-      };
-    }
-
-    return {
-      success: true,
-      isGuard: true,
-      guardData
-    };
-  } catch (error: any) {
-    console.error('Error logging in guard:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to login'
-    };
+  const guard = await getGuardById(identifier);
+  if (!guard) {
+    return { success: false, error: 'Guard ID not found', isGuard: false };
   }
+
+  if (!password || password !== '123456') {
+    return { success: false, error: 'Invalid OTP', isGuard: false };
+  }
+
+  writeSession({
+    uid: guard.uid,
+    role: 'guard',
+    displayName: guard.name,
+    phoneNumber: guard.phone
+  });
+
+  return { success: true, isGuard: true, guardData: guard };
 };
 
-// Check guard status
-export const checkGuardStatus = async (uid: string): Promise<{
-  isGuard: boolean;
-  guardData?: Guard;
-}> => {
-  try {
-    const guardDoc = await getDoc(doc(db, 'guards', uid));
+export const checkGuardStatus = async (uid: string): Promise<{ isGuard: boolean; guardData?: Guard }> => {
+  const guards = readGuards();
+  const guard = guards.find((item) => item.uid === uid && item.role === 'guard');
 
-    if (!guardDoc.exists()) {
-      return { isGuard: false };
-    }
-
-    const guardData = {
-      uid,
-      ...guardDoc.data()
-    } as Guard;
-
-    return {
-      isGuard: guardData.role === 'guard',
-      guardData: guardData.role === 'guard' ? guardData : undefined
-    };
-  } catch (error) {
-    console.error('Error checking guard status:', error);
+  if (!guard) {
     return { isGuard: false };
   }
+
+  return { isGuard: true, guardData: mapGuard(guard) };
+};
+
+export const loginCustomerSession = async (phoneNumber: string): Promise<void> => {
+  writeSession({
+    uid: `customer-${Date.now()}`,
+    role: 'customer',
+    phoneNumber,
+    displayName: 'Customer'
+  });
 };

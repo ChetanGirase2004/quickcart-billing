@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { checkGuardStatus } from '@/services/guardAuth';
+import { checkGuardStatus, clearUserSession, getCurrentUserSession } from '@/services/guardAuth';
 import { Guard } from '@/types/guard';
 
+interface SessionUser {
+  uid: string;
+  role: 'customer' | 'guard';
+  displayName?: string;
+  phoneNumber?: string;
+}
+
 interface GuardAuthContextType {
-  currentUser: User | null;
+  currentUser: SessionUser | null;
   guardData: Guard | null;
   isGuard: boolean;
   loading: boolean;
@@ -27,45 +32,52 @@ interface GuardAuthProviderProps {
 }
 
 export const GuardAuthProvider: React.FC<GuardAuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [guardData, setGuardData] = useState<Guard | null>(null);
   const [isGuard, setIsGuard] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const logout = async () => {
-    try {
-      await auth.signOut();
+  const syncGuardSession = async () => {
+    const sessionUser = getCurrentUserSession();
+
+    if (!sessionUser || sessionUser.role !== 'guard') {
       setCurrentUser(null);
       setGuardData(null);
       setIsGuard(false);
-    } catch (error) {
-      console.error('Error signing out:', error);
+      setLoading(false);
+      return;
     }
+
+    const guardStatus = await checkGuardStatus(sessionUser.uid);
+    if (guardStatus.isGuard && guardStatus.guardData) {
+      setCurrentUser(sessionUser);
+      setGuardData(guardStatus.guardData);
+      setIsGuard(true);
+    } else {
+      setCurrentUser(null);
+      setGuardData(null);
+      setIsGuard(false);
+    }
+
+    setLoading(false);
+  };
+
+  const logout = async () => {
+    await clearUserSession();
+    await syncGuardSession();
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        
-        // Check if user is guard
-        const guardStatus = await checkGuardStatus(user.uid);
-        if (guardStatus.isGuard && guardStatus.guardData) {
-          setGuardData(guardStatus.guardData);
-          setIsGuard(true);
-        } else {
-          setGuardData(null);
-          setIsGuard(false);
-        }
-      } else {
-        setCurrentUser(null);
-        setGuardData(null);
-        setIsGuard(false);
-      }
-      setLoading(false);
-    });
+    syncGuardSession();
 
-    return unsubscribe;
+    const handleAuthChange = () => {
+      syncGuardSession();
+    };
+
+    window.addEventListener('quickcart-auth-changed', handleAuthChange);
+    return () => {
+      window.removeEventListener('quickcart-auth-changed', handleAuthChange);
+    };
   }, []);
 
   const value = {
@@ -76,9 +88,5 @@ export const GuardAuthProvider: React.FC<GuardAuthProviderProps> = ({ children }
     logout
   };
 
-  return (
-    <GuardAuthContext.Provider value={value}>
-      {!loading && children}
-    </GuardAuthContext.Provider>
-  );
+  return <GuardAuthContext.Provider value={value}>{!loading && children}</GuardAuthContext.Provider>;
 };

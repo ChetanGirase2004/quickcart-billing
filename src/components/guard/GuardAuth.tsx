@@ -1,9 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ConfirmationResult, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { getGuardById } from '@/services/guardAuth';
-import { checkGuardStatus } from '@/services/guardAuth';
+import { checkGuardStatus, getGuardById, loginGuard } from '@/services/guardAuth';
 import { Guard } from '@/types/guard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,26 +17,7 @@ const GuardAuth: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [guardRecord, setGuardRecord] = useState<Guard | null>(null);
-  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
-  const confirmationResult = useRef<ConfirmationResult | null>(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    return () => {
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
-      }
-    };
-  }, []);
-
-  const initRecaptcha = async () => {
-    if (!recaptchaVerifier.current) {
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'guard-recaptcha', {
-        size: 'invisible'
-      });
-    }
-    await recaptchaVerifier.current.render();
-  };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,30 +29,25 @@ const GuardAuth: React.FC = () => {
       const guard = await getGuardById(guardId);
       if (!guard) {
         setError('Guard ID not found. Please check and try again.');
-        setLoading(false);
         return;
       }
 
       if (!guard.phone) {
         setError('Guard phone number is missing. Contact an administrator.');
-        setLoading(false);
         return;
       }
 
       if (guard.status !== 'active') {
         setError('Your account is inactive. Please contact support.');
-        setLoading(false);
         return;
       }
 
-      await initRecaptcha();
-      confirmationResult.current = await signInWithPhoneNumber(auth, guard.phone, recaptchaVerifier.current!);
       setGuardRecord(guard);
       setStep('otp');
-      setSuccess('OTP sent to your registered phone.');
-    } catch (err: any) {
+      setSuccess('OTP sent to your registered phone. Use 123456 for demo mode.');
+    } catch (err: unknown) {
       console.error('Error sending guard OTP:', err);
-      setError(err.message || 'Failed to send OTP. Try again.');
+      setError(err instanceof Error ? err.message : 'Failed to send OTP. Try again.');
     } finally {
       setLoading(false);
     }
@@ -87,32 +60,27 @@ const GuardAuth: React.FC = () => {
     setSuccess(null);
 
     try {
-      if (!confirmationResult.current) {
+      if (!guardRecord) {
         setError('Please request an OTP first.');
-        setLoading(false);
         return;
       }
 
-      const result = await confirmationResult.current.confirm(otp);
-      if (guardRecord && guardRecord.uid !== result.user.uid) {
-        await auth.signOut();
-        setError('Guard verification failed. Please contact an administrator.');
-        setLoading(false);
+      const result = await loginGuard(guardRecord.guardId, otp);
+      if (!result.success || !result.guardData) {
+        setError(result.error || 'Invalid OTP. Please try again.');
         return;
       }
 
-      const status = await checkGuardStatus(result.user.uid);
+      const status = await checkGuardStatus(result.guardData.uid);
       if (!status.isGuard) {
-        await auth.signOut();
         setError('Account is not authorized as a guard.');
-        setLoading(false);
         return;
       }
 
       navigate('/guard');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error verifying guard OTP:', err);
-      setError(err.message || 'Invalid OTP. Please try again.');
+      setError(err instanceof Error ? err.message : 'Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -190,7 +158,7 @@ const GuardAuth: React.FC = () => {
             </form>
           )}
 
-          <div id="guard-recaptcha" />
+          <div id="guard-recaptcha" className="hidden" />
         </CardContent>
       </Card>
     </div>
