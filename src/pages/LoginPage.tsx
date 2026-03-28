@@ -15,15 +15,22 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
+  const [showAdminPrompt, setShowAdminPrompt] = useState(false);
+
   const handleContinue = () => {
     if (!selectedRole) return;
     if (selectedRole === 'customer') {
       navigate('/customer/auth');
     } else if (selectedRole === 'admin') {
-      navigate('/admin/auth');
+      setShowAdminPrompt(true);
     } else {
       navigate('/guard/auth');
     }
+  };
+
+  const onAdminChoice = (isNewAdmin: boolean) => {
+    setShowAdminPrompt(false);
+    navigate(`/admin/auth?mode=${isNewAdmin ? 'register' : 'login'}`);
   };
 
   return (
@@ -91,6 +98,26 @@ export default function LoginPage() {
           </motion.div>
         </div>
       </div>
+
+      {showAdminPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-background p-6 shadow-xl">
+            <h3 className="text-xl font-semibold mb-4">Are you an existing admin or a new user?</h3>
+            <p className="text-muted-foreground mb-6">Choose one to proceed with admin access.</p>
+            <div className="space-y-3">
+              <Button className="w-full" onClick={() => onAdminChoice(false)}>
+                Existing Admin
+              </Button>
+              <Button className="w-full" onClick={() => onAdminChoice(true)}>
+                New Admin
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setShowAdminPrompt(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

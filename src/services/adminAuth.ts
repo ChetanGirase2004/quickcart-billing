@@ -5,10 +5,10 @@ const ADMIN_SESSION_KEY = 'quickcart_admin_session';
 
 interface StoredAdminAccount {
   uid: string;
-  mallName: string;
+  shopName: string;
+  shopAddress: string;
   adminName: string;
   email: string;
-  phone: string;
   password: string;
   role: 'admin';
   createdAt: string;
@@ -20,10 +20,10 @@ interface StoredAdminSession {
 
 const toAdmin = (storedAdmin: StoredAdminAccount): Admin => ({
   uid: storedAdmin.uid,
-  mallName: storedAdmin.mallName,
+  shopName: storedAdmin.shopName,
+  shopAddress: storedAdmin.shopAddress,
   adminName: storedAdmin.adminName,
   email: storedAdmin.email,
-  phone: storedAdmin.phone,
   role: storedAdmin.role,
   createdAt: new Date(storedAdmin.createdAt)
 });
@@ -62,10 +62,10 @@ export const registerAdmin = async (data: AdminFormData): Promise<{ success: boo
 
   const newAdmin: StoredAdminAccount = {
     uid: `admin-${Date.now()}`,
-    mallName: data.mallName.trim(),
+    shopName: data.shopName.trim(),
+    shopAddress: data.shopAddress.trim(),
     adminName: data.adminName.trim(),
     email: data.email.trim().toLowerCase(),
-    phone: data.phone.trim(),
     password: data.password,
     role: 'admin',
     createdAt: new Date().toISOString()
