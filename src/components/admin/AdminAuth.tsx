@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { hasRegisteredAdmin, loginAdmin, registerAdmin } from '@/services/adminAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,10 +14,10 @@ interface SignInForm {
 }
 
 interface RegisterForm {
-  mallName: string;
+  shopName: string;
+  shopAddress: string;
   adminName: string;
   email: string;
-  phone: string;
   password: string;
 }
 
@@ -25,8 +25,21 @@ const AdminAuth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [isRegisterMode, setIsRegisterMode] = useState(() => !hasRegisteredAdmin());
+  const queryParams = new URLSearchParams(location.search);
+  const mode = queryParams.get('mode');
+
+  const [isRegisterMode, setIsRegisterMode] = useState(() => {
+    if (mode === 'login') return false;
+    if (mode === 'register') return true;
+    return !hasRegisteredAdmin();
+  });
+
+  useEffect(() => {
+    if (mode === 'login') setIsRegisterMode(false);
+    if (mode === 'register') setIsRegisterMode(true);
+  }, [mode]);
 
   const [signInForm, setSignInForm] = useState<SignInForm>({
     email: '',
@@ -34,10 +47,10 @@ const AdminAuth: React.FC = () => {
   });
 
   const [registerForm, setRegisterForm] = useState<RegisterForm>({
-    mallName: '',
+    shopName: '',
+    shopAddress: '',
     adminName: '',
     email: '',
-    phone: '',
     password: ''
   });
 
@@ -59,13 +72,39 @@ const AdminAuth: React.FC = () => {
     }));
   };
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    const email = signInForm.email.trim();
+    const password = signInForm.password.trim();
+
+    if (!email || !password) {
+      setError('Email and password are required.');
+      setLoading(false);
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await loginAdmin(signInForm.email, signInForm.password);
+      const result = await loginAdmin(email, password);
 
       if (result.success && result.isAdmin) {
         navigate('/admin');
@@ -85,8 +124,32 @@ const AdminAuth: React.FC = () => {
     setLoading(true);
     setError(null);
 
+    const shopName = registerForm.shopName.trim();
+    const shopAddress = registerForm.shopAddress.trim();
+    const adminName = registerForm.adminName.trim();
+    const email = registerForm.email.trim();
+    const password = registerForm.password.trim();
+
+    if (!shopName || !shopAddress || !adminName || !email || !password) {
+      setError('All fields are required.');
+      setLoading(false);
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await registerAdmin(registerForm);
+      const result = await registerAdmin({ shopName, shopAddress, adminName, email, password });
       if (result.success) {
         navigate('/admin');
       } else {
@@ -122,8 +185,12 @@ const AdminAuth: React.FC = () => {
           {isRegisterMode ? (
             <form className="space-y-5" onSubmit={handleRegisterSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="mallName">Mall Name</Label>
-                <Input id="mallName" name="mallName" required value={registerForm.mallName} onChange={handleRegisterChange} />
+                <Label htmlFor="shopName">Shop Name</Label>
+                <Input id="shopName" name="shopName" required value={registerForm.shopName} onChange={handleRegisterChange} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="shopAddress">Shop Address</Label>
+                <Input id="shopAddress" name="shopAddress" required value={registerForm.shopAddress} onChange={handleRegisterChange} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="adminName">Admin Name</Label>
@@ -132,10 +199,6 @@ const AdminAuth: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="registerEmail">Email Address</Label>
                 <Input id="registerEmail" name="email" type="email" required value={registerForm.email} onChange={handleRegisterChange} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" name="phone" type="tel" required value={registerForm.phone} onChange={handleRegisterChange} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="registerPassword">Password</Label>

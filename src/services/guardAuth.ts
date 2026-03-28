@@ -74,9 +74,8 @@ export const getCurrentUserSession = (): AppSessionUser | null => {
 };
 
 export const generateGuardId = (): string => {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 5);
-  return `GUARD-${timestamp}-${random}`.toUpperCase();
+  const digits = Math.floor(1000 + Math.random() * 9000).toString();
+  return `GUARD${digits}`;
 };
 
 export const isGuardIdUnique = async (guardId: string): Promise<boolean> => {
@@ -113,7 +112,7 @@ export const getGuardById = async (guardId: string): Promise<Guard | null> => {
 export const registerGuardWithEmail = async (
   data: GuardRegistrationData,
   _password: string
-): Promise<{ success: boolean; error?: string; user?: { uid: string } }> => {
+): Promise<{ success: boolean; error?: string; user?: { uid: string }; guardId?: string }> => {
   const guards = readGuards();
   const guardId = await generateUniqueGuardId();
 
@@ -130,7 +129,7 @@ export const registerGuardWithEmail = async (
   };
 
   localStorage.setItem(GUARD_STORAGE_KEY, JSON.stringify([...guards, newGuard]));
-  return { success: true, user: { uid: newGuard.uid } };
+  return { success: true, user: { uid: newGuard.uid }, guardId };
 };
 
 export const registerGuardWithPhone = async (_data: GuardRegistrationData): Promise<{ success: boolean; error?: string }> => ({ success: true });
